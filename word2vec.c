@@ -372,7 +372,7 @@ void InitNet() {
 }
 
 void *TrainModelThread(void *id) {
-  long long a, b, d, cw, word, last_word, sentence_length = 0, sentence_position = 0;
+  long long a, b, d, cw, word, last_word, sentence_length = 0, sentence_position = 0, local_window = window;
   long long word_count = 0, last_word_count = 0, sen[MAX_SENTENCE_LENGTH + 1];
   long long l1, l2, c, target, label, local_iter = iter;
   unsigned long long next_random = (long long)id;
@@ -431,12 +431,13 @@ void *TrainModelThread(void *id) {
     for (c = 0; c < layer1_size; c++) neu1[c] = 0;
     for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
     next_random = next_random * (unsigned long long)25214903917 + 11;
-    b = next_random % window;
+    if (local_window == 0) local_window = sentence_length;
+    b = next_random % local_window;
     if (cbow) {  //train the cbow architecture
       // in -> hidden
       cw = 0;
-      for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
-        c = sentence_position - window + a;
+      for (a = b; a < local_window * 2 + 1 - b; a++) if (a != local_window) {
+        c = sentence_position - local_window + a;
         if (c < 0) continue;
         if (c >= sentence_length) continue;
         last_word = sen[c];
@@ -483,8 +484,8 @@ void *TrainModelThread(void *id) {
           for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * neu1[c];
         }
         // hidden -> in
-        for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
-          c = sentence_position - window + a;
+        for (a = b; a < local_window * 2 + 1 - b; a++) if (a != local_window) {
+          c = sentence_position - local_window + a;
           if (c < 0) continue;
           if (c >= sentence_length) continue;
           last_word = sen[c];
@@ -493,8 +494,8 @@ void *TrainModelThread(void *id) {
         }
       }
     } else {  //train skip-gram
-      for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
-        c = sentence_position - window + a;
+      for (a = b; a < local_window * 2 + 1 - b; a++) if (a != local_window) {
+        c = sentence_position - local_window + a;
         if (c < 0) continue;
         if (c >= sentence_length) continue;
         last_word = sen[c];
@@ -650,7 +651,7 @@ int main(int argc, char **argv) {
     printf("\t-size <int>\n");
     printf("\t\tSet size of word vectors; default is 100\n");
     printf("\t-window <int>\n");
-    printf("\t\tSet max skip length between words; default is 5\n");
+    printf("\t\tSet max skip length between words; default is 5; use 0 to set sentence length as skip length\n");
     printf("\t-sample <float>\n");
     printf("\t\tSet threshold for occurrence of words. Those that appear with higher frequency in the training data\n");
     printf("\t\twill be randomly down-sampled; default is 1e-3, useful range is (0, 1e-5)\n");
